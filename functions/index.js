@@ -76,19 +76,22 @@ admin.initializeApp();
 //let resData = []
 async function getMorePostsHelper(region, prevPostId){
     console.log("ENTERED:");
+    let resData = {"status": "failure", "data": []}
 
     const regionSnapshot = await admin.database().ref('/regions/').child(region).orderByKey().startAt(prevPostId).limitToFirst(3).once('value');
     let postsIdsJSON = regionSnapshot.val();
-    console.log("AFTER regionSnapshot");
+    if(postsIdsJSON === null || postsIdsJSON === undefined) 
+        return resData;
 
     let postsIdsArray = [];
     for(let id in postsIdsJSON){
         postsIdsArray.push(id);
     }
     postsIdsArray = postsIdsArray.filter(id => id !==prevPostId);
+    if(postsIdsArray.length === 0)
+        return resData;
 
     prevPostId = postsIdsArray[postsIdsArray.length - 1]
-    console.log("AFTER prevPostId = postsIdsArray[postsIdsArray.length - 1]");
 
     let promises = []
     for(id of postsIdsArray){
@@ -96,17 +99,18 @@ async function getMorePostsHelper(region, prevPostId){
     }
     
     console.log("postsIdsArray", postsIdsArray);
-    let resData = []
+
     await Promise.all(promises).then(values => {
         let posts = JSON.parse(JSON.stringify(values))
         posts.forEach((post, index) =>  {
             post["postId"] = postsIdsArray[index]
-            resData.push(post)
-            //returnedPosts += 1
+            //console.log("Accessed field .nrDays:",post.nrDays);
+            resData.data.push(post)
         })
-        console.log("EXIT 1:", resData);
         return;
     }).catch(err => console.log(err));
+
+    resData.status = "success";
     console.log("EXIT 2:", resData);
     
     return resData;
@@ -118,30 +122,38 @@ exports.getMorePosts = functions.https.onRequest(async (req, res) => {
     let prevPostId = req.query.prevPostId;
     let resData = []
     
+    let broke = "it didnt";
+    let currentNrOfPosts = 0;
     /* eslint-disable no-await-in-loop */
-    while(nrPostsToReturn < 2){
-        let isEmpty = true;
-        let returnedData = []
-
-        returnedData = await getMorePostsHelper(region, prevPostId);
+    do{
+        let returnedData = await getMorePostsHelper(region, prevPostId);
         nrPostsToReturn += 1
+        console.log(`returnedData + ${nrPostsToReturn}`, returnedData);
 
-        console.log("returnedData", returnedData);
-        resData.push(...returnedData);
+        returnedStatus = returnedData.status;
+        if(returnedStatus === 'failure') {
+            console.log("BROKE"); 
+            broke = "it did break";
+            break;
+        }
+
+        returnedPosts = returnedData.data;
+
+        resData.push(...returnedPosts);
       
-        console.log("resData2", resData)
         prevPostId = resData[resData.length-1]
-        console.log("resData[resData.length - 1]", resData[resData.length - 1])
-        console.log("nrPostsToReturn", nrPostsToReturn);
         prevPostId = prevPostId.postId
-        console.log("last", prevPostId)
-    }
-    /* eslint-enable no-await-in-loop */
-    
 
+        currentNrOfPosts += resData.length;
+    }while(currentNrOfPosts < 5);
+    /* eslint-enable no-await-in-loop */
+    console.log("BROKE STATUS: ",broke);
+
+    let message = "no-more-posts-in-region";
+    if(resData.length !== 0) { message = "OK"; }
     return res.status(200).json({
-        message: '[S] mod',
-        //postsIdsArray: postsIdsArray,
+        version: "Nr Days",
+        message: message,
         resData: resData,
     });
 
