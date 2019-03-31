@@ -24,7 +24,7 @@ exports.getFirstPosts = functions.https.onRequest((req, res) => {
                 message = "success"
             }
             console.log(data);
-            return res.status(200).json({
+            return res.status(200).send.json({
                 version: "check if data is null",
                 message: message,
                 qry: req.query,
@@ -34,55 +34,6 @@ exports.getFirstPosts = functions.https.onRequest((req, res) => {
 });
 
 
-// WORKING VERSION with .postId = postsIdsArray[i]
-// exports.getMorePosts = functions.https.onRequest(async (req, res) => {
-//     const regionSnapshot = await admin.database().ref('/regions/').child(req.query.region).orderByKey().startAt(req.query.prevPostId).limitToFirst(3).once('value');
-//     let postsIdsJSON = regionSnapshot.val();
-//     let postsIdsArray = [];
-//     for(let id in postsIdsJSON){
-//         postsIdsArray.push(id);
-//     }
-//     postsIdsArray = postsIdsArray.filter(id => id !== req.query.prevPostId);
-
-//     let promises = []
-//     for(id of postsIdsArray){
-//         promises.push(admin.database().ref('/posts/').child(id).once('value'));
-//         // .indexOn latitude & longitude?
-//         // scor al fiecarui user:
-//         // cate hearts are (hidden), cate poze a pus in post, de cat timp e utilizator, 
-//         // daca are x posts, are +1p etc
-//     }
-
-//     let resData = []
-//     await Promise.all(promises).then(values => {
-//         console.log("1");
-//         let posts = JSON.parse(JSON.stringify(values))
-//         // for(post of posts){
-//         //     console.log("2");
-//         //     let newPost = post
-//         //     newPost['postId'] = 
-//         //     newPost["plsWORK2"] = "Roxana2"
-//         //     newPost.plsWORK3 = "Roxana3"
-//         //     console.log("3");
-//         //     resData.push(newPost);
-//         // }
-//         posts.forEach((post, index) =>  {
-//             post["postId"] = postsIdsArray[index]
-//             resData.push(post)
-//         })
-//         return;
-//     });
-
-
-//     return res.status(200).json({
-//         message: '[S] parse.stringify',
-//         postsIdsArray: postsIdsArray,
-//         resData: resData,
-//     });
-
-// });
-
-//let resData = []
 async function getMorePostsHelper(region, prevPostId){
     console.log("ENTERED:");
     let resData = {"status": "failure", "data": []}
@@ -167,43 +118,6 @@ exports.getMorePosts = functions.https.onRequest(async (req, res) => {
     });
 
 });
-
-// console.log("post", post); prints the data from getMorePostsHelper
-// exports.getMorePosts = functions.https.onRequest(async (req, res) => {
-//     let nrPostsToReturn = 0; //15
-//     let region = req.query.region;
-//     let prevPostId = req.query.prevPostId;
-//     let resData = []
-
-//     //while(nrPostsToReturn < 1){
-//         let isEmpty = true;
-//         let returnedData = []
-//         getMorePostsHelper(region, prevPostId).then((posts) => {
-//             console.log("POSTS", posts);
-//             posts.forEach(post => {
-//                 isEmpty = false;
-//                 console.log("post",post);
-//                 returnedData.push(post)
-//             })
-//             return;
-//         }).catch(err => console.error(err));
-          
-//         console.log("resData2", resData)
-//         // resData.push(...returnedData)
-//         // prevPostId = resData[resData.length-1]
-//         // prevPostId = prevPostId.postId
-//         console.log("last", prevPostId)
-//     //}
-    
-
-//     return res.status(200).json({
-//         message: '[S] returnedData too',
-//         //postsIdsArray: postsIdsArray,
-//         resData: resData,
-//         returnedData: returnedData,
-//     });
-
-// });
 
 exports.addMessage = functions.https.onRequest(async (req, res) => {
     const original = req.query.text;
