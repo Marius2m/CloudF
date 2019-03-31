@@ -10,19 +10,28 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 admin.initializeApp();
 
-// exports.getFirstPosts = functions.https.onRequest((req, res) => {
-//     return admin.database().ref('/regions/').child(req.query.region)
-//         .limitToFirst(2)
-//         .once('value')
-//         .then((snapshot) => {
-//             console.log(snapshot.val());
-//             return res.status(200).json({
-//                 message: "getFirstPosts",
-//                 qry: req.query,
-//                 data: snapshot.val()
-//             });
-//         });
-// });
+exports.getFirstPosts = functions.https.onRequest((req, res) => {
+    return admin.database().ref('/regions/').child(req.query.region)
+        .limitToFirst(2)
+        .once('value')
+        .then((snapshot) => {
+            let data = snapshot.val();
+            let message = "empty"
+
+            if(data === null || data === undefined) { 
+                message = "No-posts-in-region"
+            }else{
+                message = "success"
+            }
+            console.log(data);
+            return res.status(200).json({
+                version: "check if data is null",
+                message: message,
+                qry: req.query,
+                data: data,
+            });
+        });
+});
 
 
 // WORKING VERSION with .postId = postsIdsArray[i]
