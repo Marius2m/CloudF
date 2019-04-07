@@ -4,8 +4,48 @@ const functions = require('firebase-functions');
 // // https://firebase.google.com/docs/functions/write-firebase-functions
 //
 // exports.helloWorld = functions.https.onRequest((request, response) => {
-//  response.send("Hello from Firebase!");
+//     data = JSON.stringify("Hello from Firebase!");
+//     console.log("req:", request.query);
+//     return response.send({message: "Hi Android!"});
+//     //return response.status(200).json({message: '[S] getMorePosts',});
 // });
+exports.helloWorld = functions.https.onCall((data, context) => {
+    console.log("data:", data.text);
+
+    return{
+        res: "Hi Android"
+    };
+});
+
+exports.addNumbers = functions.https.onCall(async (data) => {
+    // [END addFunctionTrigger]
+      // [START readAddData]
+      // Numbers passed from the client.
+      const firstNumber = data.firstNumber;
+      const secondNumber = data.secondNumber;
+      // [END readAddData]
+    
+      // [START addHttpsError]
+      // Checking that attributes are present and are numbers.
+      if (!Number.isFinite(firstNumber) || !Number.isFinite(secondNumber)) {
+        // Throwing an HttpsError so that the client gets the error details.
+        throw new functions.https.HttpsError('invalid-argument', 'The function must be called with ' +
+            'two arguments "firstNumber" and "secondNumber" which must both be numbers.');
+      }
+    //   [END addHttpsError]
+    
+      // [START returnAddData]
+      // returning result.
+      return {
+        firstNumber: firstNumber,
+        secondNumber: secondNumber,
+        operator: '+',
+        operationResult: firstNumber + secondNumber,
+      };
+      // [END returnAddData]
+    });
+    // [END allAdd]
+
 
 const admin = require('firebase-admin');
 admin.initializeApp();
@@ -147,3 +187,36 @@ exports.addMessage = functions.https.onRequest(async (req, res) => {
 //         prevPostIdIsString: type
 //     });
 // });
+
+// Listens for new messages added to /messages/:pushId/original and creates an
+// uppercase version of the message to /messages/:pushId/uppercase
+exports.makeUppercase = functions.database
+    .ref('/messages/{pushId}/original')
+    .onCreate((snapshot, context) => {
+      // Grab the current value of what was written to the Realtime Database.
+      const original = snapshot.val();
+      console.log('Uppercasing', context.params.pushId, original);
+      const uppercase = original.toUpperCase();
+      // You must return a Promise when performing asynchronous tasks inside a Functions such as
+      // writing to the Firebase Realtime Database.
+      // Setting an "uppercase" sibling in the Realtime Database returns a Promise.
+      return snapshot.ref.parent.child('uppercase').set(uppercase);
+    });
+
+
+// Listens for new posts added to /posts/:postId and creates an
+// entry with postId under /regions/r_{x}/ 
+exports.addPostToRegion = functions.database
+    .ref('/posts/{pushId}')
+    .onCreate((snapshot, context) => {
+        const original = snapshot.val();
+        console.log("Data is:",original);
+        console.log("Context.resouce is:", context.resource);
+        console.log("Context.params is:", context.params);
+
+        const postID = context.params.pushId;
+        let regionData = {
+            [postID]:1
+        }
+        return snapshot.ref.parent.parent.child('regions').child('r_10').set({[postID] : 1});
+    });
