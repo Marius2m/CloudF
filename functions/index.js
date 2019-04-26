@@ -50,29 +50,25 @@ exports.addNumbers = functions.https.onCall(async (data) => {
 const admin = require('firebase-admin');
 admin.initializeApp();
 
-exports.getFirstPosts = functions.https.onRequest((req, res) => {
-    return admin.database().ref('/regions/').child(req.query.region)
-        .limitToFirst(2)
-        .once('value')
-        .then((snapshot) => {
-            let data = snapshot.val();
-            let message = "empty"
 
-            if(data === null || data === undefined) { 
-                message = "No-posts-in-region"
-            }else{
-                message = "success"
-            }
-            console.log(data);
-            return res.status(200).send.json({
-                version: "check if data is null",
-                message: message,
-                qry: req.query,
-                data: data,
-            });
-        });
-});
 
+
+// exports.getInitialPosts = functions.https.onRequest((req, res) => {
+
+//     let initialData = await admin.database().ref('/regions/').child(req.query.region).limitToFirst(2).once('value');
+
+//     console.log("init data", initialData.val());
+
+//     // let initialPostData = await admin.database().ref('/posts/').child(id).once('value');
+
+//     return res.status(200).send.json({
+//         version: "check if data is null",
+//         message: message,
+//         qry: req.query,
+//         data: data,
+//     });
+   
+// });
 
 async function getMorePostsHelper(region, prevPostId){
     console.log("ENTERED:");
@@ -157,6 +153,76 @@ exports.getMorePosts = functions.https.onRequest(async (req, res) => {
         resData: resData,
     });
 
+});
+
+exports.getFirstPosts = functions.https.onRequest(async (req, res) => {
+    let dbRef = admin.database().ref();
+
+    return dbRef.child('/regions/').child(req.query.region)
+        .limitToFirst(1)
+        .once('value')
+        .then(async (snapshot) => {
+            let data = snapshot.val();
+            let message = "empty"
+
+            if(data === null || data === undefined) { 
+                message = "No-posts-in-region"
+            }else{
+                message = "success"
+            }
+            console.log(data);
+
+            let firstPostId = Object.keys(data)[0]
+            // let postsIdsArray = [];
+            // for(let id in data){
+            //     postsIdsArray.push(id);
+            //     console.log('x',id);
+            // }
+
+            let resData = []
+            return dbRef.child('/posts').child(firstPostId).once('value')
+                .then(async (snapshot) => {
+                    let nrPostsToReturn = 0; //15
+                    let region = req.query.region;
+                    let prevPostId = firstPostId;
+                    
+                    let broke = "it didnt";
+                    let currentNrOfPosts = 0;
+                    /* eslint-disable no-await-in-loop */
+                    do{
+                        let returnedData = await getMorePostsHelper(region, prevPostId);
+                        nrPostsToReturn += 1
+                        console.log(`returnedData + ${nrPostsToReturn}`, returnedData);
+                
+                        returnedStatus = returnedData.status;
+                        if(returnedStatus === 'failure') {
+                            console.log("BROKE"); 
+                            broke = "it did break";
+                            break;
+                        }
+                
+                        returnedPosts = returnedData.data;
+                
+                        resData.push(...returnedPosts);
+                      
+                        prevPostId = resData[resData.length-1]
+                        prevPostId = prevPostId.postId
+                
+                        currentNrOfPosts += resData.length;
+                    }while(currentNrOfPosts < 5);
+                    /* eslint-enable no-await-in-loop */
+
+                    return res.status(200).json({
+                        version: "update 3",
+                        message: message,
+                        data: data,
+                        postId: firstPostId,
+                        postData: snapshot.val(),
+                        resData: resData,
+                    });
+                });
+        
+        });
 });
 
 exports.addMessage = functions.https.onRequest(async (req, res) => {
