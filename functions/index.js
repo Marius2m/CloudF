@@ -70,6 +70,38 @@ admin.initializeApp();
    
 // });
 
+async function getValidPosts(region, prevPostId) {
+    let nrPostsToReturn = 0; //15
+
+    let resData = []
+    let currentNrOfPosts = 0;
+    /* eslint-disable no-await-in-loop */
+    do {
+        let returnedData = await getMorePostsHelper(region, prevPostId);
+        nrPostsToReturn += 1
+        console.log(`returnedData + ${nrPostsToReturn}`, returnedData);
+
+        returnedStatus = returnedData.status;
+        if (returnedStatus === 'failure') {
+            broke = "it did break";
+            break;
+        }
+
+        returnedPosts = returnedData.data;
+
+        resData.push(...returnedPosts);
+
+        prevPostId = resData[resData.length - 1]
+        prevPostId = prevPostId.postId
+
+        currentNrOfPosts += resData.length;
+    } while (currentNrOfPosts < 5);
+    /* eslint-enable no-await-in-loop */
+
+    return { message: "OK", validPosts: resData};
+
+}
+
 async function getMorePostsHelper(region, prevPostId){
     console.log("ENTERED:");
     let resData = {"status": "failure", "data": []}
@@ -113,52 +145,27 @@ async function getMorePostsHelper(region, prevPostId){
 }
 
 exports.getMorePosts = functions.https.onRequest(async (req, res) => {
-    let nrPostsToReturn = 0; //15
     let region = req.query.region;
     let prevPostId = req.query.prevPostId;
-    let resData = []
     
-    let broke = "it didnt";
-    let currentNrOfPosts = 0;
-    /* eslint-disable no-await-in-loop */
-    do{
-        let returnedData = await getMorePostsHelper(region, prevPostId);
-        nrPostsToReturn += 1
-        console.log(`returnedData + ${nrPostsToReturn}`, returnedData);
+    let postsData = await getValidPosts(region, prevPostId); 
 
-        returnedStatus = returnedData.status;
-        if(returnedStatus === 'failure') {
-            console.log("BROKE"); 
-            broke = "it did break";
-            break;
-        }
-
-        returnedPosts = returnedData.data;
-
-        resData.push(...returnedPosts);
-      
-        prevPostId = resData[resData.length-1]
-        prevPostId = prevPostId.postId
-
-        currentNrOfPosts += resData.length;
-    }while(currentNrOfPosts < 5);
-    /* eslint-enable no-await-in-loop */
-    console.log("BROKE STATUS: ",broke);
-
-    let message = "no-more-posts-in-region";
-    if(resData.length !== 0) { message = "OK"; }
+    let message = "no-posts";
+    if(postsData.validPosts.length !== 0) { message = "ok"; }
+    
     return res.status(200).json({
-        version: "Nr Days",
+        version: "getMorePosts 3",
         message: message,
-        resData: resData,
+        posts: postsData.validPosts,
     });
 
 });
 
 exports.getFirstPosts = functions.https.onRequest(async (req, res) => {
     let dbRef = admin.database().ref();
+    let region = req.query.region;
 
-    return dbRef.child('/regions/').child(req.query.region)
+    return dbRef.child('/regions/').child(region)
         .limitToFirst(1)
         .once('value')
         .then(async (snapshot) => {
@@ -173,52 +180,17 @@ exports.getFirstPosts = functions.https.onRequest(async (req, res) => {
             console.log(data);
 
             let firstPostId = Object.keys(data)[0]
-            // let postsIdsArray = [];
-            // for(let id in data){
-            //     postsIdsArray.push(id);
-            //     console.log('x',id);
-            // }
-
-            let resData = []
+        
             return dbRef.child('/posts').child(firstPostId).once('value')
                 .then(async (snapshot) => {
-                    let nrPostsToReturn = 0; //15
-                    let region = req.query.region;
-                    let prevPostId = firstPostId;
-                    
-                    let broke = "it didnt";
-                    let currentNrOfPosts = 0;
-                    /* eslint-disable no-await-in-loop */
-                    do{
-                        let returnedData = await getMorePostsHelper(region, prevPostId);
-                        nrPostsToReturn += 1
-                        console.log(`returnedData + ${nrPostsToReturn}`, returnedData);
-                
-                        returnedStatus = returnedData.status;
-                        if(returnedStatus === 'failure') {
-                            console.log("BROKE"); 
-                            broke = "it did break";
-                            break;
-                        }
-                
-                        returnedPosts = returnedData.data;
-                
-                        resData.push(...returnedPosts);
-                      
-                        prevPostId = resData[resData.length-1]
-                        prevPostId = prevPostId.postId
-                
-                        currentNrOfPosts += resData.length;
-                    }while(currentNrOfPosts < 5);
-                    /* eslint-enable no-await-in-loop */
+                    let postsData = await getValidPosts(region, firstPostId);
 
                     return res.status(200).json({
-                        version: "update 3",
+                        version: "update 5",
                         message: message,
                         data: data,
-                        postId: firstPostId,
-                        postData: snapshot.val(),
-                        resData: resData,
+                        post: snapshot.val(),
+                        posts: postsData.validPosts,
                     });
                 });
         
