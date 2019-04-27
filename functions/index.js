@@ -1,14 +1,50 @@
 const functions = require('firebase-functions');
 
-// // Create and Deploy Your First Cloud Functions
-// // https://firebase.google.com/docs/functions/write-firebase-functions
-//
+// Create and Deploy Your First Cloud Functions
+// https://firebase.google.com/docs/functions/write-firebase-functions
+
 // exports.helloWorld = functions.https.onRequest((request, response) => {
 //     data = JSON.stringify("Hello from Firebase!");
 //     console.log("req:", request.query);
 //     return response.send({message: "Hi Android!"});
 //     //return response.status(200).json({message: '[S] getMorePosts',});
 // });
+
+// maybe include continents names inside the array in the case of continent selected
+const regions = [
+    {
+        africa: 
+            ["Algeria", "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cameroon", "Cape Verde", "Central African Republic", "Chad", "Comoros", "Republic of the Congo", "Democratic Republic of the Congo", "Côte d'Ivoire", 
+            "Djibouti", "Egypt", "Equatorial Guinea", "Eritrea", "Ethiopia", "Gabon", "The Gambia", "Ghana", "Guinea", "Guinea-Bissau", "Kenya", "Lesotho", "Liberia", "Libya", "Madagascar", "Malawi", "Mali", "Mauritania", "Mauritius",
+            "Morocco", "Mozambique", "Namibia", "Niger", "Nigeria", "Rwanda", "São Tomé and Príncipe", "Senegal", "Seychelles", "Sierra Leone", "Somalia", "South Africa", "South Sudan", "Swaziland", "Tanzania", "Togo", "Tunisia", 
+            "Uganda", "Western Sahara", "Zambia", "Zimbabwe"]
+    },
+    {
+        antarctica: 
+            ["2"],
+    },
+    {
+        asia: 
+            ["3"],
+    },
+    {
+        europe: 
+            ["4"],
+    },
+    {
+        'north america': 
+            ["5"],
+    },
+    {
+        'south america': 
+            ["6"],
+    },
+    {
+        'oceania': 
+            ["7"]
+    }
+]
+
 exports.helloWorld = functions.https.onCall((data, context) => {
     console.log("data:", data.text);
 
@@ -243,18 +279,34 @@ exports.makeUppercase = functions.database
 
 
 // Listens for new posts added to /posts/:postId and creates an
-// entry with postId under /regions/r_{x}/ 
+// entry with postId under /regions/{continent}/ 
 exports.addPostToRegion = functions.database
     .ref('/posts/{pushId}')
     .onCreate((snapshot, context) => {
         const original = snapshot.val();
-        console.log("Data is:",original);
-        console.log("Context.resouce is:", context.resource);
-        console.log("Context.params is:", context.params);
+        // console.log("Data is:",original); // data
+        // console.log("Context.resouce is:", context.resource); // firebase project
+        // console.log("Context.params is:", context.params); // key
+
+        let foundContinent = 'other';
+        let findCountry = 'São Tomé and Príncipe'; // original.country 
+
+        regions.some( (regionEl) => {
+            let region = Object.keys(regionEl)[0];
+
+            return regionEl[region].find( (country) => {
+                if(findCountry.toLocaleLowerCase() === country.toLocaleLowerCase()){
+                    foundContinent = region;
+                    return true;
+                }
+                return false;
+            });
+        });
 
         const postID = context.params.pushId;
         let regionData = {
             [postID]:1
         }
-        return snapshot.ref.parent.parent.child('regions').child('r_10').set({[postID] : 1});
+        
+        return snapshot.ref.parent.parent.child('regions').child(foundContinent).set(regionData);
     });
