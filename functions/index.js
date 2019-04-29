@@ -320,5 +320,6 @@ exports.addPostToRegion = functions.database
             [postID]:1
         }
         
-        return snapshot.ref.parent.parent.child('regions').child(foundContinent).set(regionData);
+        // .child('regions').child(`${foundContinent}/${postId}`).set("1");
+        return snapshot.ref.parent.parent.child('regions').child(foundContinent).update(regionData);
     });
