@@ -25,25 +25,31 @@ const regions = [
     },
     {
         asia: 
-            ["3"],
+            ["Afghanistan", "Armenia", "Azerbaijan", "Bahrain", "Bangladesh", "Bhutan", "Brunei", "Cambodia", "China", "Cyprus", "East Timor", "Georgia", "India", "Indonesia", "Iran", "Iraq", "Israel", "Japan", "Jordan", "Kazakhstan",
+            "Kuwait", "Kyrgyzstan", "Laos", "Lebanon", "Malaysia", "Maldives", "Mongolia", "Myanmar", "Nepal", "North Korea", "Oman", "Pakistan", "Palestine", "Philippines", "Qatar", "Russian", "Saudi Arabia", "Singapore", "South Korea",
+            "Sri Lanka", "Syria", "Taiwan", "Tajikistan", "Thailand", "Turkey", "Turkmenistan", "United Arab Emirates", "Uzbekistan", "Vietnam", "Yemen"]
     },
     {
         europe: 
-            ["4"],
+            ["Albania", "Andorra", "Austria", "Belarus", "Belgium", "Bosnia and Herzegovina", "Bulgaria", "Croatia", "Czech Republic", "Denmark", "Estonia", "Findland", "France", "Germany", "Greece", "Hungary", "Iceland", "Republic of Ireland",
+            "Italy", "Kosovo", "Latvia", "Liechtenstein", "Lithuania", "Luxembourg", "Macedonia", "Malta", "Moldova", "Monaco", "Montenegro", "Netherlands", "Norway", "Poland", "Portugal", "Romania", "San Marino", "Serbia", "Slovakia", "Slovenia",
+            "Spain", "Sweden", "Switzerland", "Ukraine", "United Kingdom", "Vatican City"]
     },
     {
         'north america': 
-            ["5"],
+            ["Canada", "Greenland", "Western Iceland", "United States of America", "Mexico", "Bermuda", "Antigua and Barbuda", "Aruba", "The Bahamas", "Barbados", "Belize", "Bonaire", "Costa Rica", "Cuba", "Curaçao", "Dominica", "Dominican Republic",
+            "El Salvador", "Grenada", "Guatemala", "Haiti", "Honduras", "Jamaica", "Nicaragua", "Panama", "Puerto Rico", "Saba", "Saint Kitts and Nevis", "Saint Martin", "Saint Lucia", "Saint Vincent and the Grenadines", "Sint Eustatius", "Sint Maarten",
+            "Trinidad and Tobago", "Turks and Caicos"]
     },
     {
         'south america': 
-            ["6"],
+            ["Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador", "French Guiana", "Guyana", "Paraguay", "Peru", "Suriname", "Uruguay", "Venezuela"]
     },
     {
         'oceania': 
-            ["7"]
+            ["Australia", "Federated States of Micronesia", "Fiji", "Kiribati", "Marshall Islands", "Nauru", "New Zealand", "Palau", "Papua New Guinea", "Samoa", "Solomon Islands", "Tonga", "Tuvalu", "Vanuatu"]
     }
-]
+];
 
 exports.helloWorld = functions.https.onCall((data, context) => {
     console.log("data:", data.text);
@@ -283,16 +289,22 @@ exports.makeUppercase = functions.database
 exports.addPostToRegion = functions.database
     .ref('/posts/{pushId}')
     .onCreate((snapshot, context) => {
-        const original = snapshot.val();
-        // console.log("Data is:",original); // data
+        const snapshotData = snapshot.val();
+        // console.log("Data is:",snapshotData); // data
         // console.log("Context.resouce is:", context.resource); // firebase project
         // console.log("Context.params is:", context.params); // key
 
         let foundContinent = 'other';
-        let findCountry = 'São Tomé and Príncipe'; // original.country 
+        //let findCountry = 'São Tomé and Príncipe'; // snapshotData.country 
+        let findCountry = snapshotData.location.split(',').pop().trim();
 
         regions.some( (regionEl) => {
             let region = Object.keys(regionEl)[0];
+
+            if (findCountry.toLocaleLowerCase() === region.toLocaleLowerCase()) {
+                foundContinent = region;
+                return true;
+            }
 
             return regionEl[region].find( (country) => {
                 if(findCountry.toLocaleLowerCase() === country.toLocaleLowerCase()){
