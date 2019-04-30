@@ -93,7 +93,26 @@ const admin = require('firebase-admin');
 admin.initializeApp();
 
 
+const convertDegreesToRadians = (degrees) => {
+    return degrees * Math.PI / 180;
+}
 
+function distanceBetween2Coordinates(A_lat, A_long, B_lat, B_long) {
+    const earthRadius = 6371; // km
+
+    const A_latRad = convertDegreesToRadians(A_lat);
+    const B_latRad = convertDegreesToRadians(B_lat);
+
+    const d_lat = convertDegreesToRadians(B_lat - A_lat);
+    const d_long = convertDegreesToRadians(B_long - A_long);
+
+    let a = Math.sin(d_lat / 2) * Math.sin(d_lat / 2) + 
+            Math.cos(A_latRad) * Math.cos(B_latRad) *
+            Math.sin(d_long / 2) * Math.sin(d_long / 2);
+    let c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+    return earthRadius * c; // km
+}
 
 // exports.getInitialPosts = functions.https.onRequest((req, res) => {
 
@@ -112,76 +131,80 @@ admin.initializeApp();
    
 // });
 
-async function getValidPosts(region, prevPostId) {
-    let nrPostsToReturn = 0; //15
+async function getValidPosts(region, prevPostId, distance, currentLocationCoordinates) {
+    let nrPostsToReturn = 5; // pagination
 
     let resData = []
     let currentNrOfPosts = 0;
     /* eslint-disable no-await-in-loop */
     do {
-        let returnedData = await getMorePostsHelper(region, prevPostId);
-        nrPostsToReturn += 1
-        console.log(`returnedData + ${nrPostsToReturn}`, returnedData);
+        let returnedData = await getMorePostsHelper(region, prevPostId, distance, currentLocationCoordinates);
 
         returnedStatus = returnedData.status;
         if (returnedStatus === 'failure') {
-            broke = "it did break";
             break;
         }
 
         returnedPosts = returnedData.data;
-
         resData.push(...returnedPosts);
 
-        prevPostId = resData[resData.length - 1]
-        prevPostId = prevPostId.postId
+        prevPostId = returnedData.prevPostId;
 
         currentNrOfPosts += resData.length;
-    } while (currentNrOfPosts < 5);
+    } while (currentNrOfPosts < nrPostsToReturn);
     /* eslint-enable no-await-in-loop */
 
-    return { message: "OK", validPosts: resData};
+    return { message: "OK", validPosts: resData, prevPostId: prevPostId};
 
 }
 
-async function getMorePostsHelper(region, prevPostId){
-    console.log("ENTERED:");
+async function getMorePostsHelper(region, prevPostId, distance, currentLocationCoordinates){
+    // console.log("ENTERED:");
     let resData = {"status": "failure", "data": []}
 
     const regionSnapshot = await admin.database().ref('/regions/').child(region).orderByKey().startAt(prevPostId).limitToFirst(3).once('value');
     let postsIdsJSON = regionSnapshot.val();
-    if(postsIdsJSON === null || postsIdsJSON === undefined) 
+    if(postsIdsJSON === null || postsIdsJSON === undefined) {
+        console.log("=== empty region 1");
         return resData;
+    }
 
     let postsIdsArray = [];
     for(let id in postsIdsJSON){
         postsIdsArray.push(id);
     }
     postsIdsArray = postsIdsArray.filter(id => id !==prevPostId);
-    if(postsIdsArray.length === 0)
+    if(postsIdsArray.length === 0) {
+        console.log("==== empty region 2");
         return resData;
+    }
 
     prevPostId = postsIdsArray[postsIdsArray.length - 1]
+    // console.log("prevPostId: ", `'${prevPostId}'`);
 
     let promises = []
     for(id of postsIdsArray){
         promises.push(admin.database().ref('/posts/').child(id).once('value'));
     }
     
-    console.log("postsIdsArray", postsIdsArray);
+    // console.log("postsIdsArray", postsIdsArray);
 
     await Promise.all(promises).then(values => {
         let posts = JSON.parse(JSON.stringify(values))
         posts.forEach((post, index) =>  {
-            post["postId"] = postsIdsArray[index]
-            //console.log("Accessed field .nrDays:",post.nrDays);
-            resData.data.push(post)
+            if (distanceBetween2Coordinates(currentLocationCoordinates.latitude, currentLocationCoordinates.longitude, 
+                    post.latitude, post.longitude) < distance) 
+            {
+                post["postId"] = postsIdsArray[index]
+                resData.data.push(post)
+            }
         })
         return;
     }).catch(err => console.log(err));
 
+    resData.prevPostId = prevPostId;
     resData.status = "success";
-    console.log("EXIT 2:", resData);
+    // console.log("EXIT:", resData);
     
     return resData;
 }
@@ -189,16 +212,19 @@ async function getMorePostsHelper(region, prevPostId){
 exports.getMorePosts = functions.https.onRequest(async (req, res) => {
     let region = req.query.region;
     let prevPostId = req.query.prevPostId;
+    let distance = req.query.distance;
+    let currentLocationCoordinates = {latitude: req.query.latitude, longitude: req.query.longitude};
     
-    let postsData = await getValidPosts(region, prevPostId); 
+    let postsData = await getValidPosts(region, prevPostId, distance, currentLocationCoordinates); 
 
     let message = "no-posts";
     if(postsData.validPosts.length !== 0) { message = "ok"; }
     
     return res.status(200).json({
-        version: "getMorePosts 3",
+        version: "getMorePosts 5",
         message: message,
         posts: postsData.validPosts,
+        prevPostId: postsData.prevPostId,
     });
 
 });
@@ -206,7 +232,9 @@ exports.getMorePosts = functions.https.onRequest(async (req, res) => {
 exports.getFirstPosts = functions.https.onRequest(async (req, res) => {
     let dbRef = admin.database().ref();
     let region = req.query.region;
-
+    let distance = req.query.distance;
+    let currentLocationCoordinates = {latitude: req.query.latitude, longitude: req.query.longitude};
+    
     return dbRef.child('/regions/').child(region)
         .limitToFirst(1)
         .once('value')
@@ -215,7 +243,7 @@ exports.getFirstPosts = functions.https.onRequest(async (req, res) => {
             let message = "empty"
 
             if(data === null || data === undefined) { 
-                message = "No-posts-in-region"
+                message = "no-posts"
             }else{
                 message = "success"
             }
@@ -223,16 +251,26 @@ exports.getFirstPosts = functions.https.onRequest(async (req, res) => {
 
             let firstPostId = Object.keys(data)[0]
         
+            let resData = [];
             return dbRef.child('/posts').child(firstPostId).once('value')
                 .then(async (snapshot) => {
-                    let postsData = await getValidPosts(region, firstPostId);
+                    let firstPost = snapshot.val();
+
+                    if (distanceBetween2Coordinates(currentLocationCoordinates.latitude, currentLocationCoordinates.longitude, 
+                        firstPost.latitude, firstPost.longitude) < distance) {
+                            firstPost['postId'] = firstPostId;
+                            resData.push(firstPost);
+                            console.log("REALLY WORKED");
+                    }
+
+                    let postsData = await getValidPosts(region, firstPostId, distance, currentLocationCoordinates);
+                    resData.push(...postsData.validPosts);
 
                     return res.status(200).json({
-                        version: "update 5",
+                        version: "update 6",
                         message: message,
-                        data: data,
-                        post: snapshot.val(),
-                        posts: postsData.validPosts,
+                        posts: resData,
+                        prevPostId: postsData.prevPostId,
                     });
                 });
         
