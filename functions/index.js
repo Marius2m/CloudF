@@ -214,18 +214,18 @@ async function getMorePostsHelper(region, prevPostId, distance, currentLocationC
 }
 
 exports.getMorePosts = functions.https.onRequest(async (req, res) => {
-    let region = req.query.region;
+    let region = findContinent(req.query.country);
     let prevPostId = req.query.prevPostId;
     let distance = req.query.distance;
     let currentLocationCoordinates = {latitude: req.query.latitude, longitude: req.query.longitude};
     
     let postsData = await getValidPosts(region, prevPostId, distance, currentLocationCoordinates); 
-
     let message = "no-posts";
-    if(postsData.validPosts.length !== 0) { message = "ok"; }
+    let statusCode = 204;
+    if(postsData.validPosts.length !== 0) { message = "ok"; statusCode = 200;}
     
-    return res.status(200).json({
-        version: "getMorePosts 5",
+    return res.status(statusCode).json({
+        version: "getMorePosts 6",
         message: message,
         posts: postsData.validPosts,
         prevPostId: postsData.prevPostId,
