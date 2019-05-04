@@ -36,17 +36,17 @@ const regions = [
             "Spain", "Sweden", "Switzerland", "Ukraine", "United Kingdom", "Vatican City"]
     },
     {
-        'north america': 
+        "north america": 
             ["Canada", "Greenland", "Western Iceland", "United States of America", "Mexico", "Bermuda", "Antigua and Barbuda", "Aruba", "The Bahamas", "Barbados", "Belize", "Bonaire", "Costa Rica", "Cuba", "Curaçao", "Dominica", "Dominican Republic",
             "El Salvador", "Grenada", "Guatemala", "Haiti", "Honduras", "Jamaica", "Nicaragua", "Panama", "Puerto Rico", "Saba", "Saint Kitts and Nevis", "Saint Martin", "Saint Lucia", "Saint Vincent and the Grenadines", "Sint Eustatius", "Sint Maarten",
             "Trinidad and Tobago", "Turks and Caicos"]
     },
     {
-        'south america': 
+        "south america": 
             ["Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador", "French Guiana", "Guyana", "Paraguay", "Peru", "Suriname", "Uruguay", "Venezuela"]
     },
     {
-        'oceania': 
+        oceania: 
             ["Australia", "Federated States of Micronesia", "Fiji", "Kiribati", "Marshall Islands", "Nauru", "New Zealand", "Palau", "Papua New Guinea", "Samoa", "Solomon Islands", "Tonga", "Tuvalu", "Vanuatu"]
     }
 ];
@@ -92,6 +92,27 @@ exports.addNumbers = functions.https.onCall(async (data) => {
 const admin = require('firebase-admin');
 admin.initializeApp();
 
+const findContinent = (findCountry) => {
+    let foundContinent = 'other';
+
+    regions.some( (regionEl) => {
+         region = Object.keys(regionEl)[0];
+
+        if (findCountry.toLocaleLowerCase() === region.toLocaleLowerCase()) {
+            foundContinent = region;
+            return true;
+        }
+
+        return regionEl[region].find( (country) => {
+            if(findCountry.toLocaleLowerCase() === country.toLocaleLowerCase()){
+                foundContinent = region;
+                return true;
+            }
+            return false;
+        });
+    });
+    return foundContinent;
+}
 
 const convertDegreesToRadians = (degrees) => {
     return degrees * Math.PI / 180;
@@ -113,23 +134,6 @@ function distanceBetween2Coordinates(A_lat, A_long, B_lat, B_long) {
 
     return earthRadius * c; // km
 }
-
-// exports.getInitialPosts = functions.https.onRequest((req, res) => {
-
-//     let initialData = await admin.database().ref('/regions/').child(req.query.region).limitToFirst(2).once('value');
-
-//     console.log("init data", initialData.val());
-
-//     // let initialPostData = await admin.database().ref('/posts/').child(id).once('value');
-
-//     return res.status(200).send.json({
-//         version: "check if data is null",
-//         message: message,
-//         qry: req.query,
-//         data: data,
-//     });
-   
-// });
 
 async function getValidPosts(region, prevPostId, distance, currentLocationCoordinates) {
     let nrPostsToReturn = 5; // pagination
@@ -231,10 +235,11 @@ exports.getMorePosts = functions.https.onRequest(async (req, res) => {
 
 exports.getFirstPosts = functions.https.onRequest(async (req, res) => {
     let dbRef = admin.database().ref();
-    let region = req.query.region;
+    let region = findContinent(req.query.country);
     let distance = req.query.distance;
     let currentLocationCoordinates = {latitude: req.query.latitude, longitude: req.query.longitude};
-    
+    console.log("QueryParams: ",req.query);    
+
     return dbRef.child('/regions/').child(region)
         .limitToFirst(1)
         .once('value')
@@ -244,10 +249,14 @@ exports.getFirstPosts = functions.https.onRequest(async (req, res) => {
 
             if(data === null || data === undefined) { 
                 message = "no-posts"
+                return res.status(204).json({
+                    version: "update 12",
+                    message: message,
+                });
             }else{
                 message = "success"
             }
-            console.log(data);
+            console.log("data;", data);
 
             let firstPostId = Object.keys(data)[0]
         
@@ -260,20 +269,27 @@ exports.getFirstPosts = functions.https.onRequest(async (req, res) => {
                         firstPost.latitude, firstPost.longitude) < distance) {
                             firstPost['postId'] = firstPostId;
                             resData.push(firstPost);
-                            console.log("REALLY WORKED");
                     }
 
                     let postsData = await getValidPosts(region, firstPostId, distance, currentLocationCoordinates);
                     resData.push(...postsData.validPosts);
 
                     return res.status(200).json({
-                        version: "update 6",
+                        version: "update 12",
                         message: message,
                         posts: resData,
                         prevPostId: postsData.prevPostId,
                     });
                 });
         
+        })
+        .catch((err) => {
+            console.log("errrr", err);
+            return res.status(202).json({
+                version: "update 12",
+                message: "no-posts-2",
+                error: err,
+            });
         });
 });
 
@@ -289,22 +305,6 @@ exports.addMessage = functions.https.onRequest(async (req, res) => {
           });
   });
 
-// exports.dummyFunction = functions.https.onRequest((req, res) => {
-//     var type = "nuf";
-//     if(req.query.prevPostId instanceof String) 
-//         type = "truee";
-//     else type = "falsee";
-//     if(typeof req.query.prevPostId === 'string') 
-//         type = "truee";
-//     else type = "falsee";
-
-//     return res.status(200).json({
-//         message: '[S] getMorePosts',
-//         qry: req.query,
-//         prevPostId: req.query.prevPostId,
-//         prevPostIdIsString: type
-//     });
-// });
 
 // Listens for new messages added to /messages/:pushId/original and creates an
 // uppercase version of the message to /messages/:pushId/uppercase
@@ -360,4 +360,15 @@ exports.addPostToRegion = functions.database
         
         // .child('regions').child(`${foundContinent}/${postId}`).set("1");
         return snapshot.ref.parent.parent.child('regions').child(foundContinent).update(regionData);
-    });
+});
+
+exports.fakeFunction = functions.https.onRequest(async (req, res) => {
+    let region = req.query.region;
+    
+    //status, code, message
+    let response = {
+        version: "fakeFunction 0.1",
+        region: region,
+    };
+    res.send(response);
+});
