@@ -362,6 +362,45 @@ exports.addPostToRegion = functions.database
         return snapshot.ref.parent.parent.child('regions').child(foundContinent).update(regionData);
 });
 
+exports.deletePost = functions.database
+    .ref('/users/{userId}/posts/{postKey}')
+    .onDelete(async (snapshot, context) => {
+        const postId = snapshot.val();
+        // console.log("Data is:", postId); // value of {postId}
+        // console.log("Context.resouce is:", context.resource); // the ref
+        // console.log("Context.params is:", context.params); // {userId} {postKey}
+
+        let postLocation = await admin.database().ref().child(`/posts/${postId}`).child('location').once('value');
+        postLocation = postLocation.val();
+        const country = postLocation.split(',').pop().trim();
+        const continent = findContinent(country);
+
+        admin.database().ref().child('posts').child(`${postId}`)
+            .remove()
+            .catch((err) => {
+                console.log("/posts/postId", err);
+            });
+        
+        admin.database().ref().child('posts_contents').child(`${postId}`)
+            .remove()
+            .catch((err) => {
+                console.log("/posts_contents/postId", err);
+            });
+
+        admin.database().ref().child('regions').child(`${continent}/${postId}`)
+            .remove()
+            .catch((err) => {
+                console.log("/posts_contents/postId", err);
+            });
+
+        console.log(`Deleted post: ${postId}`)
+        
+        const bucket = admin.storage().bucket();
+        return bucket.deleteFiles({
+            prefix: `posts/${postId}`
+        });
+});
+
 exports.fakeFunction = functions.https.onRequest(async (req, res) => {
     let region = req.query.region;
     
