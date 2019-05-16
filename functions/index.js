@@ -51,42 +51,42 @@ const regions = [
     }
 ];
 
-exports.helloWorld = functions.https.onCall((data, context) => {
-    console.log("data:", data.text);
+// exports.helloWorld = functions.https.onCall((data, context) => {
+//     console.log("data:", data.text);
 
-    return{
-        res: "Hi Android"
-    };
-});
+//     return{
+//         res: "Hi Android"
+//     };
+// });
 
-exports.addNumbers = functions.https.onCall(async (data) => {
-    // [END addFunctionTrigger]
-      // [START readAddData]
-      // Numbers passed from the client.
-      const firstNumber = data.firstNumber;
-      const secondNumber = data.secondNumber;
-      // [END readAddData]
+// exports.addNumbers = functions.https.onCall(async (data) => {
+//     // [END addFunctionTrigger]
+//       // [START readAddData]
+//       // Numbers passed from the client.
+//       const firstNumber = data.firstNumber;
+//       const secondNumber = data.secondNumber;
+//       // [END readAddData]
     
-      // [START addHttpsError]
-      // Checking that attributes are present and are numbers.
-      if (!Number.isFinite(firstNumber) || !Number.isFinite(secondNumber)) {
-        // Throwing an HttpsError so that the client gets the error details.
-        throw new functions.https.HttpsError('invalid-argument', 'The function must be called with ' +
-            'two arguments "firstNumber" and "secondNumber" which must both be numbers.');
-      }
-    //   [END addHttpsError]
+//       // [START addHttpsError]
+//       // Checking that attributes are present and are numbers.
+//       if (!Number.isFinite(firstNumber) || !Number.isFinite(secondNumber)) {
+//         // Throwing an HttpsError so that the client gets the error details.
+//         throw new functions.https.HttpsError('invalid-argument', 'The function must be called with ' +
+//             'two arguments "firstNumber" and "secondNumber" which must both be numbers.');
+//       }
+//     //   [END addHttpsError]
     
-      // [START returnAddData]
-      // returning result.
-      return {
-        firstNumber: firstNumber,
-        secondNumber: secondNumber,
-        operator: '+',
-        operationResult: firstNumber + secondNumber,
-      };
-      // [END returnAddData]
-    });
-    // [END allAdd]
+//       // [START returnAddData]
+//       // returning result.
+//       return {
+//         firstNumber: firstNumber,
+//         secondNumber: secondNumber,
+//         operator: '+',
+//         operationResult: firstNumber + secondNumber,
+//       };
+//       // [END returnAddData]
+//     });
+//     // [END allAdd]
 
 
 const admin = require('firebase-admin');
@@ -293,33 +293,33 @@ exports.getFirstPosts = functions.https.onRequest(async (req, res) => {
         });
 });
 
-exports.addMessage = functions.https.onRequest(async (req, res) => {
-    const original = req.query.text;
+// exports.addMessage = functions.https.onRequest(async (req, res) => {
+//     const original = req.query.text;
 
-    const snapshot = await admin.database().ref('/messages').push({original: original});
-    // Redirect with 303 SEE OTHER to the URL of the pushed object in the Firebase console.
-    return res.status(200).json({
-              message: '[S] getMorePosts',
-              snapshot: snapshot,
-              original: original,
-          });
-  });
+//     const snapshot = await admin.database().ref('/messages').push({original: original});
+//     // Redirect with 303 SEE OTHER to the URL of the pushed object in the Firebase console.
+//     return res.status(200).json({
+//               message: '[S] getMorePosts',
+//               snapshot: snapshot,
+//               original: original,
+//           });
+//   });
 
 
 // Listens for new messages added to /messages/:pushId/original and creates an
 // uppercase version of the message to /messages/:pushId/uppercase
-exports.makeUppercase = functions.database
-    .ref('/messages/{pushId}/original')
-    .onCreate((snapshot, context) => {
-      // Grab the current value of what was written to the Realtime Database.
-      const original = snapshot.val();
-      console.log('Uppercasing', context.params.pushId, original);
-      const uppercase = original.toUpperCase();
-      // You must return a Promise when performing asynchronous tasks inside a Functions such as
-      // writing to the Firebase Realtime Database.
-      // Setting an "uppercase" sibling in the Realtime Database returns a Promise.
-      return snapshot.ref.parent.child('uppercase').set(uppercase);
-    });
+// exports.makeUppercase = functions.database
+//     .ref('/messages/{pushId}/original')
+//     .onCreate((snapshot, context) => {
+//       // Grab the current value of what was written to the Realtime Database.
+//       const original = snapshot.val();
+//       console.log('Uppercasing', context.params.pushId, original);
+//       const uppercase = original.toUpperCase();
+//       // You must return a Promise when performing asynchronous tasks inside a Functions such as
+//       // writing to the Firebase Realtime Database.
+//       // Setting an "uppercase" sibling in the Realtime Database returns a Promise.
+//       return snapshot.ref.parent.child('uppercase').set(uppercase);
+//     });
 
 
 // Listens for new posts added to /posts/:postId and creates an
@@ -333,7 +333,7 @@ exports.addPostToRegion = functions.database
         // console.log("Context.params is:", context.params); // key
 
         let foundContinent = 'other';
-        //let findCountry = 'São Tomé and Príncipe'; // snapshotData.country 
+        //let findCountry = 'S�o Tom� and Pr�ncipe'; // snapshotData.country 
         let findCountry = snapshotData.location.split(',').pop().trim();
 
         regions.some( (regionEl) => {
@@ -358,13 +358,18 @@ exports.addPostToRegion = functions.database
             [postID]:1
         }
         
-        // .child('regions').child(`${foundContinent}/${postId}`).set("1");
-        return snapshot.ref.parent.parent.child('regions').child(foundContinent).update(regionData);
+
+        return admin.database().ref().child('posts').child(postID).update({region: foundContinent})
+            .then((data) => {
+                console.log("dataUpdate", data);
+                return snapshot.ref.parent.parent.child('regions').child(foundContinent).update(regionData);
+            });
+        // return snapshot.ref.parent.parent.child('regions').child(foundContinent).update(regionData);
 });
 
 exports.deletePost = functions.database
     .ref('/users/{userId}/posts/{postKey}')
-    .onDelete(async (snapshot, context) => {
+    .onDelete(async (snapshot, context) => {        
         const postId = snapshot.val();
         // console.log("Data is:", postId); // value of {postId}
         // console.log("Context.resouce is:", context.resource); // the ref
@@ -372,6 +377,10 @@ exports.deletePost = functions.database
 
         let postLocation = await admin.database().ref().child(`/posts/${postId}`).child('location').once('value');
         postLocation = postLocation.val();
+        if (postLocation === null || postLocation === undefined) {
+            return null;
+        }
+
         const country = postLocation.split(',').pop().trim();
         const continent = findContinent(country);
 
@@ -401,13 +410,93 @@ exports.deletePost = functions.database
         });
 });
 
-exports.fakeFunction = functions.https.onRequest(async (req, res) => {
-    let region = req.query.region;
+exports.deleteProfile = functions.https.onRequest(async (req, res) => {
+    let dbRef = admin.database().ref();
+    let userId = req.body.userId;
+
+    console.log("req.body 1", req.body);
+
+    let userPostsSnapshot = await dbRef.child(`/users/${userId}/posts`).once('value');
+    userPostsSnapshot = userPostsSnapshot.val();
+    console.log("userPostsSnapshot", userPostsSnapshot);
+
+    let postsData = []
     
-    //status, code, message
-    let response = {
-        version: "fakeFunction 0.1",
-        region: region,
-    };
-    res.send(response);
+    /* eslint-disable no-await-in-loop */
+    for (const key of Object.keys(userPostsSnapshot)) {
+        let postId = userPostsSnapshot[key];
+        let regionSnapshot = await dbRef.child(`/posts/${postId}/region`).once('value');
+        postsData.push({id: postId, region: regionSnapshot.val()});
+    }
+    /* eslint-enable no-await-in-loop */
+
+    const bucket = admin.storage().bucket();
+
+    let promises = []
+    for(post of postsData) {
+        promises.push(dbRef.child(`/posts/${post.id}`).remove());
+        promises.push(dbRef.child(`posts_contents/${post.id}`).remove());
+        promises.push(dbRef.child(`regions/${post.region}/${post.id}`).remove());
+        promises.push(bucket.deleteFiles({prefix: `posts/${post.id}`}));
+    }
+
+    await Promise.all(promises)
+        .then((values) => {
+            return dbRef.child(`users/${userId}`).remove()
+                .then((resolve) => {
+
+                   return admin.auth().deleteUser(userId)
+                        .then(() => {
+                            console.log(`Deleted user ${userId}`);
+                            return res.status(200).json({
+                                version: "deleteProfile 10",
+                                userPostsSnapshot: userPostsSnapshot,
+                                postsData: postsData,
+                                values: values,
+                            });
+                        })
+                        .catch((err) => {
+                            console.error(`Failed to delete ${userId}: ${err}`);
+                        });
+                })
+        })
+        .catch(err => {
+            console.log(err)
+            return res.status(200).json({
+                version: "deleteProfile 09",
+                userPostsSnapshot: userPostsSnapshot,
+                err: err,
+            });
+        });
+});
+
+exports.fakeFunction = functions.https.onRequest(async (req, res) => {
+
+    // const storage = require('@google-cloud/storage')();
+    // const bucket = storage.bucket('albums');
+    // bucket.deleteFiles({
+    //     prefix: `-Les4uTwiZB5Vyf0GCPh`
+    //   }, function(err) {
+    //     if (!err) {
+    //       console.log("all files have been deleted");
+    //     }
+    // });
+
+    const bucket1 = admin.storage().bucket();
+
+    await bucket1.deleteFiles(
+        {
+        prefix: `posts/-Les4uTwiZB5Vyf0GCPh/`
+        }, 
+        (err => console.log("bucketError", err))
+    );
+    
+    return res.status(200).json({
+        message: 'Fake Function 02',
+    });
+});
+
+exports.fakeDelete = functions.https.onRequest(async (req, res) => {
+    // console.log(req);
+    res.status(204).send({message: "Successfully deleted"});
 });
