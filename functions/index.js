@@ -402,12 +402,30 @@ exports.deletePost = functions.database
                 console.log("/posts_contents/postId", err);
             });
 
-        console.log(`Deleted post: ${postId}`)
+        console.log(`[1]Deleted post: ${postId}`)
         
-        const bucket = admin.storage().bucket();
-        return bucket.deleteFiles({
-            prefix: `posts/${postId}`
-        });
+        // // const bucket = admin.storage().bucket();
+        // // return bucket.deleteFiles({
+        // //     prefix: `posts/${postId}`
+        // // });
+        // const { Storage } = require('@google-cloud/storage');
+        // const storageObj = new Storage();
+    
+        // const bucketName = 'msapath-c1831.appspot.com';
+        // const bucket = storageObj.bucket(bucketName);
+    
+        // const fakePostId = "-LezjHHGTmtmFfEwXbde"
+        // bucket.deleteFiles({
+        //     prefix: `posts/${fakePostId}`
+        //     // prefix: `posts/${postId}`
+        // }).then((data) => {
+        //     console.log("data:", data);
+        //     console.log(`[2] Deleted post: ${postId}`)
+        //     return;
+        // }).catch((err) => {
+        //     console.log("err:", err);
+        // });
+
 });
 
 exports.deleteProfile = functions.https.onRequest(async (req, res) => {
@@ -499,4 +517,48 @@ exports.fakeFunction = functions.https.onRequest(async (req, res) => {
 exports.fakeDelete = functions.https.onRequest(async (req, res) => {
     // console.log(req);
     res.status(204).send({message: "Successfully deleted"});
+});
+
+exports.fakeDeleteFiles = functions.https.onRequest(async (req, res) => {
+    // START UPLOAD
+    // const { Storage } = require('@google-cloud/storage');
+    // const storageObj = new Storage();
+
+    // const bucketName = 'msapath-c1831.appspot.com';
+    // const bucket = storageObj.bucket(bucketName);
+
+    // // bucket.upload("./sth.txt")
+    // bucket.upload("./beach.jpg")
+    //     .then(() => {
+    //         console.log("Uploaded file");
+    //         return;
+    //     })
+    //     .catch(err => {
+    //         console.error('ERROR:', err);
+    //     });
+    // END UPLOAD
+
+    // START DELETE_ALL_FILES - works
+    const { Storage } = require('@google-cloud/storage');
+    const storageObj = new Storage();
+
+    const bucketName = 'msapath-c1831.appspot.com';
+    const bucket = storageObj.bucket(bucketName);
+
+    const fakePostId = "-LezjHHGTmtmFfEwXbde"
+    const path = `posts/${fakePostId}`
+    const fakePath = `testFolder/${fakePostId}`;
+    bucket.deleteFiles({
+        prefix: path
+        // prefix: fakePath
+    }).then(() => {
+        console.log("path", path);
+        return res.status(200).json({
+            message: 'fakeDeleteFiles 13',
+        });
+    }).catch((err) => {
+        console.log("err:", err);
+    });
+    // END DELETE_ALL_FILES 
+
 });
