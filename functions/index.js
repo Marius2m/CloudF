@@ -620,10 +620,11 @@ async function getFilteredPosts(queryString, prevPostId) {
 }
 
 exports.searchByString = functions.https.onRequest(async (req, res) => {
-    const dbRef = admin.database().ref();
     const queryString = req.query.queryString;
-     
-    let prevPostId = null;
+    let message = "no-posts";
+    let statusCode = 204;
+    let prevPostId = queryString;
+
     if(req.query.prevPostId !== null && req.query.prevPostId !== undefined) 
         prevPostId = req.query.prevPostId;
 
@@ -633,23 +634,39 @@ exports.searchByString = functions.https.onRequest(async (req, res) => {
     }
     console.log("Query Params: ", req.query);
 
-    const regionSnapshot = await admin.database().ref('/posts/')
-                                    .orderByChild('location')
-                                    .limitToFirst(10)
-                                    .startAt(queryString).endAt(queryString+'\uf8ff')
+    const querySnapshot = await admin.database().ref('/posts/')
+                                    .orderByChild('_sort_location')
+                                    .startAt(prevPostId).endAt(queryString + '\uf8ff')
+                                    .limitToFirst(3)
                                     .once('value');
-    let resData = regionSnapshot.val();
-    // let postsData = await getFilteredPosts(queryString, prevPostId);
-    // let message = "no-posts";
-    // let statusCode = 204;
-    // if(postsData.filteredPosts.length !== 0) { message = "ok"; statusCode = 200;}
+    let resData = querySnapshot.val();
+
+    if (!resData) {
+        return res.status(statusCode).json({
+            version: "searchByString 15",
+            message: message,
+        });
+    }
+    console.log("resData: ", resData);
     
-    return res.status(200).json({
-        version: "searchByString 8",
-        // message: message,
-        // posts: postsData.filteredPosts,
-        // prevPostId: postsData.prevPostId,
-        resData: resData,
+    let posts = [];
+    for(let key of Object.keys(resData)) {
+        resData[key].postId = key;
+        prevPostId = resData[key]["_sort_location"];
+        delete resData[key]["_sort_location"];
+        posts.push(resData[key]);
+    }
+    posts.pop();
+    
+    if(posts.length > 0) { 
+        message = "ok"; statusCode = 200;
+    }
+    
+    return res.status(statusCode).json({
+        version: "searchByString 15",
+        message: message,
+        prevPostId: prevPostId,
+        posts: posts,
         continentsArr: continentsArr,
     });
 
