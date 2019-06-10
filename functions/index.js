@@ -51,44 +51,6 @@ const regions = [
     }
 ];
 
-// exports.helloWorld = functions.https.onCall((data, context) => {
-//     console.log("data:", data.text);
-
-//     return{
-//         res: "Hi Android"
-//     };
-// });
-
-// exports.addNumbers = functions.https.onCall(async (data) => {
-//     // [END addFunctionTrigger]
-//       // [START readAddData]
-//       // Numbers passed from the client.
-//       const firstNumber = data.firstNumber;
-//       const secondNumber = data.secondNumber;
-//       // [END readAddData]
-    
-//       // [START addHttpsError]
-//       // Checking that attributes are present and are numbers.
-//       if (!Number.isFinite(firstNumber) || !Number.isFinite(secondNumber)) {
-//         // Throwing an HttpsError so that the client gets the error details.
-//         throw new functions.https.HttpsError('invalid-argument', 'The function must be called with ' +
-//             'two arguments "firstNumber" and "secondNumber" which must both be numbers.');
-//       }
-//     //   [END addHttpsError]
-    
-//       // [START returnAddData]
-//       // returning result.
-//       return {
-//         firstNumber: firstNumber,
-//         secondNumber: secondNumber,
-//         operator: '+',
-//         operationResult: firstNumber + secondNumber,
-//       };
-//       // [END returnAddData]
-//     });
-//     // [END allAdd]
-
-
 const admin = require('firebase-admin');
 admin.initializeApp();
 
@@ -304,22 +266,6 @@ exports.getFirstPosts = functions.https.onRequest(async (req, res) => {
 //               original: original,
 //           });
 //   });
-
-
-// Listens for new messages added to /messages/:pushId/original and creates an
-// uppercase version of the message to /messages/:pushId/uppercase
-// exports.makeUppercase = functions.database
-//     .ref('/messages/{pushId}/original')
-//     .onCreate((snapshot, context) => {
-//       // Grab the current value of what was written to the Realtime Database.
-//       const original = snapshot.val();
-//       console.log('Uppercasing', context.params.pushId, original);
-//       const uppercase = original.toUpperCase();
-//       // You must return a Promise when performing asynchronous tasks inside a Functions such as
-//       // writing to the Firebase Realtime Database.
-//       // Setting an "uppercase" sibling in the Realtime Database returns a Promise.
-//       return snapshot.ref.parent.child('uppercase').set(uppercase);
-//     });
 
 
 // Listens for new posts added to /posts/:postId and creates an
@@ -548,17 +494,76 @@ exports.fakeDeleteFiles = functions.https.onRequest(async (req, res) => {
     const fakePostId = "-LezjHHGTmtmFfEwXbde"
     const path = `posts/${fakePostId}`
     const fakePath = `testFolder/${fakePostId}`;
+    const filePath = "posts";
     bucket.deleteFiles({
-        prefix: path
+        // prefix: path
         // prefix: fakePath
+        prefix: filePath
     }).then(() => {
-        console.log("path", path);
+        console.log("path", filePath);
         return res.status(200).json({
-            message: 'fakeDeleteFiles 13',
+            message: 'fakeDeleteFiles POST',
         });
     }).catch((err) => {
         console.log("err:", err);
     });
     // END DELETE_ALL_FILES 
 
+});
+
+exports.getPost = functions.https.onRequest(async (req, res) => {
+
+    let dbRef = admin.database().ref();
+
+    let post;
+    const postId = req.query.postId;
+    const postDataSnapshot = await dbRef.child("posts").child(postId).once('value');
+    console.log("postDataSnapshot", postDataSnapshot);
+    if(!postDataSnapshot.val()) {
+        return res.set({ 'Access-Control-Allow-Origin': '*' }).status(404).json({
+            version: "getPost 7 a",
+        });
+    }
+    const postData = postDataSnapshot.val();
+    const userId = postData.userId;
+    post = {
+        coverImg: postData.coverImg,
+        location: postData.location,
+        nrDays: postData.nrDays,
+        title: postData.title,
+        travelDate: postData.travelDate
+    }
+    let promises = [];
+    promises.push(dbRef.child("posts_contents").child(postId).once('value'),
+                  dbRef.child("users").child(userId).once('value')); 
+
+    return await Promise.all(promises).then(values => {
+        let posts = JSON.parse(JSON.stringify(values))
+        posts.forEach((data, index) => {
+            if (index === 0) {
+                let postContents = [];
+                for (const key of Object.keys(data)) {
+                    postContents.push(data[key]);
+                }
+                post["postContents"] = postContents;
+            } else {
+                let userData = {
+                    profilePictureUrl: data.profilePictureUrl,
+                    name: data.name
+                }
+                post["userData"] = userData;
+            }
+        })
+        return res.set({ 'Access-Control-Allow-Origin': '*' }).status(200).json({
+            version: "getPost 7 b",
+            post: post
+        });
+    }).catch(err => {
+        console.log(err)
+        return res.set({ 'Access-Control-Allow-Origin': '*' }).status(404).json({
+            version: "getPost 7 c",
+            err: err,
+            post: post,
+        });
+    });
 });
