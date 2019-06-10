@@ -567,3 +567,90 @@ exports.getPost = functions.https.onRequest(async (req, res) => {
         });
     });
 });
+
+async function getFilteredPostsHelper(queryString, prevPostId){
+    let resData = {"status": "failure", "data": []}
+
+    const postsSnapshot = await admin.database().ref('/posts/')
+                                        .orderByChild('location')
+                                        .limitToFirst(10)
+                                        .startAt(queryString).endAt(queryString+'\uf8ff')
+                                        .once('value');
+    let posts = postsSnapshot.val();
+    if(posts === null || posts === undefined) {
+        console.log("=== no posts");
+        return resData;
+    }
+
+    let arrOfPostIds = [];
+    for(const key of Object.keys(posts)) {
+        arrOfPostIds.push(key);
+    }
+    resData.prevPostId = arrOfPostIds[arrOfPostIds.length - 1];
+    resData.data.push(...posts);
+    resData.status = "success";
+
+    return resData;
+}
+
+async function getFilteredPosts(queryString, prevPostId) {
+    let nrPostsToReturn = 3; 
+
+    let resData = []
+    let currentNrOfPosts = 0;
+    /* eslint-disable no-await-in-loop */
+    do {
+        let returnedData = await getFilteredPostsHelper(queryString, prevPostId);
+
+        returnedStatus = returnedData.status;
+        if (returnedStatus === 'failure') {
+            break;
+        }
+
+        returnedPosts = returnedData.data;
+        resData.push(...returnedPosts);
+
+        prevPostId = returnedData.prevPostId;
+
+        currentNrOfPosts += resData.length;
+    } while (currentNrOfPosts < nrPostsToReturn);
+    /* eslint-enable no-await-in-loop */
+
+    return { message: "OK", filteredPosts: resData, prevPostId: prevPostId};
+}
+
+exports.searchByString = functions.https.onRequest(async (req, res) => {
+    const dbRef = admin.database().ref();
+    const queryString = req.query.queryString;
+     
+    let prevPostId = null;
+    if(req.query.prevPostId !== null && req.query.prevPostId !== undefined) 
+        prevPostId = req.query.prevPostId;
+
+    let continentsArr = ["america", "australia"];
+    for(region of regions) {
+        continentsArr.push(Object.keys(region)[0]);
+    }
+    console.log("Query Params: ", req.query);
+
+    const regionSnapshot = await admin.database().ref('/posts/')
+                                    .orderByChild('location')
+                                    .limitToFirst(10)
+                                    .startAt(queryString).endAt(queryString+'\uf8ff')
+                                    .once('value');
+    let resData = regionSnapshot.val();
+    // let postsData = await getFilteredPosts(queryString, prevPostId);
+    // let message = "no-posts";
+    // let statusCode = 204;
+    // if(postsData.filteredPosts.length !== 0) { message = "ok"; statusCode = 200;}
+    
+    return res.status(200).json({
+        version: "searchByString 8",
+        // message: message,
+        // posts: postsData.filteredPosts,
+        // prevPostId: postsData.prevPostId,
+        resData: resData,
+        continentsArr: continentsArr,
+    });
+
+});
