@@ -3,13 +3,6 @@ const functions = require('firebase-functions');
 // Create and Deploy Your First Cloud Functions
 // https://firebase.google.com/docs/functions/write-firebase-functions
 
-// exports.helloWorld = functions.https.onRequest((request, response) => {
-//     data = JSON.stringify("Hello from Firebase!");
-//     console.log("req:", request.query);
-//     return response.send({message: "Hi Android!"});
-//     //return response.status(200).json({message: '[S] getMorePosts',});
-// });
-
 // maybe include continents names inside the array in the case of continent selected
 const regions = [
     {
@@ -255,31 +248,17 @@ exports.getFirstPosts = functions.https.onRequest(async (req, res) => {
         });
 });
 
-// exports.addMessage = functions.https.onRequest(async (req, res) => {
-//     const original = req.query.text;
-
-//     const snapshot = await admin.database().ref('/messages').push({original: original});
-//     // Redirect with 303 SEE OTHER to the URL of the pushed object in the Firebase console.
-//     return res.status(200).json({
-//               message: '[S] getMorePosts',
-//               snapshot: snapshot,
-//               original: original,
-//           });
-//   });
-
-
 // Listens for new posts added to /posts/:postId and creates an
 // entry with postId under /regions/{continent}/ 
 exports.addPostToRegion = functions.database
     .ref('/posts/{pushId}')
     .onCreate((snapshot, context) => {
         const snapshotData = snapshot.val();
-        // console.log("Data is:",snapshotData); // data
-        // console.log("Context.resouce is:", context.resource); // firebase project
-        // console.log("Context.params is:", context.params); // key
+        console.log("Data is:",snapshotData); // data
+        console.log("Context.resouce is:", context.resource); // firebase project
+        console.log("Context.params is:", context.params); // key
 
         let foundContinent = 'other';
-        //let findCountry = 'S�o Tom� and Pr�ncipe'; // snapshotData.country 
         let findCountry = snapshotData.location.split(',').pop().trim();
 
         regions.some( (regionEl) => {
@@ -303,8 +282,11 @@ exports.addPostToRegion = functions.database
         let regionData = {
             [postID]:1
         }
-        
 
+        let _sort_location = snapshotData.location + "_" + postID;
+        
+        admin.database().ref().child('posts').child(postID).update({_sort_location: _sort_location});
+        
         return admin.database().ref().child('posts').child(postID).update({region: foundContinent})
             .then((data) => {
                 console.log("dataUpdate", data);
@@ -567,57 +549,6 @@ exports.getPost = functions.https.onRequest(async (req, res) => {
         });
     });
 });
-
-async function getFilteredPostsHelper(queryString, prevPostId){
-    let resData = {"status": "failure", "data": []}
-
-    const postsSnapshot = await admin.database().ref('/posts/')
-                                        .orderByChild('location')
-                                        .limitToFirst(10)
-                                        .startAt(queryString).endAt(queryString+'\uf8ff')
-                                        .once('value');
-    let posts = postsSnapshot.val();
-    if(posts === null || posts === undefined) {
-        console.log("=== no posts");
-        return resData;
-    }
-
-    let arrOfPostIds = [];
-    for(const key of Object.keys(posts)) {
-        arrOfPostIds.push(key);
-    }
-    resData.prevPostId = arrOfPostIds[arrOfPostIds.length - 1];
-    resData.data.push(...posts);
-    resData.status = "success";
-
-    return resData;
-}
-
-async function getFilteredPosts(queryString, prevPostId) {
-    let nrPostsToReturn = 3; 
-
-    let resData = []
-    let currentNrOfPosts = 0;
-    /* eslint-disable no-await-in-loop */
-    do {
-        let returnedData = await getFilteredPostsHelper(queryString, prevPostId);
-
-        returnedStatus = returnedData.status;
-        if (returnedStatus === 'failure') {
-            break;
-        }
-
-        returnedPosts = returnedData.data;
-        resData.push(...returnedPosts);
-
-        prevPostId = returnedData.prevPostId;
-
-        currentNrOfPosts += resData.length;
-    } while (currentNrOfPosts < nrPostsToReturn);
-    /* eslint-enable no-await-in-loop */
-
-    return { message: "OK", filteredPosts: resData, prevPostId: prevPostId};
-}
 
 exports.searchByString = functions.https.onRequest(async (req, res) => {
     const queryString = req.query.queryString;
