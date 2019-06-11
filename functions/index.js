@@ -623,51 +623,55 @@ exports.searchByString = functions.https.onRequest(async (req, res) => {
     const queryString = req.query.queryString;
     let message = "no-posts";
     let statusCode = 204;
-    let prevPostId = queryString;
+    let prevSortLocation = queryString;
 
-    if(req.query.prevPostId !== null && req.query.prevPostId !== undefined) 
-        prevPostId = req.query.prevPostId;
+    if(req.query.prevSortLocation !== null && req.query.prevSortLocation !== undefined) 
+        prevSortLocation = req.query.prevSortLocation;
 
-    let continentsArr = ["america", "australia"];
-    for(region of regions) {
-        continentsArr.push(Object.keys(region)[0]);
-    }
-    console.log("Query Params: ", req.query);
+    // let continentsArr = ["america", "australia"];
+    // for(region of regions) {
+    //     continentsArr.push(Object.keys(region)[0]);
+    // }
 
     const querySnapshot = await admin.database().ref('/posts/')
                                     .orderByChild('_sort_location')
-                                    .startAt(prevPostId).endAt(queryString + '\uf8ff')
+                                    .startAt(prevSortLocation).endAt(queryString + '\uf8ff')
                                     .limitToFirst(3)
                                     .once('value');
-    let resData = querySnapshot.val();
 
+    let resData = querySnapshot.val();
     if (!resData) {
         return res.status(statusCode).json({
-            version: "searchByString 15",
+            version: "searchByString 19",
             message: message,
         });
     }
-    console.log("resData: ", resData);
+    console.log("resData",resData);
     
     let posts = [];
     for(let key of Object.keys(resData)) {
         resData[key].postId = key;
-        prevPostId = resData[key]["_sort_location"];
+        prevSortLocation = resData[key]["_sort_location"];
         delete resData[key]["_sort_location"];
         posts.push(resData[key]);
     }
-    posts.pop();
-    
-    if(posts.length > 0) { 
+    console.log("posts", posts);
+
+    if (posts.length > 1) {
+        posts.pop();
         message = "ok"; statusCode = 200;
+    }
+
+    if (posts.length === 1) {
+        message = "done";
+        statusCode = 200;
     }
     
     return res.status(statusCode).json({
-        version: "searchByString 15",
+        version: "searchByString 19",
         message: message,
-        prevPostId: prevPostId,
+        prevSortLocation: prevSortLocation,
         posts: posts,
-        continentsArr: continentsArr,
     });
 
 });
