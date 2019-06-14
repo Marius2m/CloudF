@@ -195,61 +195,45 @@ exports.getFirstPosts = functions.https.onRequest(async (req, res) => {
     let currentLocationCoordinates = {latitude: req.query.latitude, longitude: req.query.longitude};
     console.log("QueryParams: ",req.query);    
 
-    return dbRef.child('/regions/').child(region)
-        .limitToFirst(1)
-        .once('value')
-        .then(async (snapshot) => {
-            let data = snapshot.val();
-            let message = "empty"
-
-            if(data === null || data === undefined) { 
-                message = "no-posts"
-                return res.status(204).json({
-                    version: "update 12",
-                    message: message,
-                });
-            }else{
-                message = "success"
-            }
-            console.log("data;", data);
-
-            let firstPostId = Object.keys(data)[0]
-        
-            let resData = [];
-            return dbRef.child('/posts').child(firstPostId).once('value')
-                .then(async (snapshot) => {
-                    let firstPost = snapshot.val();
-
-                    if (distanceBetween2Coordinates(currentLocationCoordinates.latitude, currentLocationCoordinates.longitude, 
-                        firstPost.latitude, firstPost.longitude) < distance) {
-                            firstPost['postId'] = firstPostId;
-                            resData.push(firstPost);
-                    }
-
-                    let postsData = await getValidPosts(region, firstPostId, distance, currentLocationCoordinates);
-                    resData.push(...postsData.validPosts);
-
-                    let message = "no-posts";
-                    let statusCode = 204;
-                    if(resData.length !== 0) { message = "ok"; statusCode = 200;}
-
-                    return res.status(statusCode).json({
-                        version: "update 14",
-                        message: message,
-                        posts: resData,
-                        prevPostId: postsData.prevPostId,
-                    });
-                });
-        
-        })
-        .catch((err) => {
-            console.log("errrr", err);
-            return res.status(202).json({
-                version: "update 12",
-                message: "no-posts-2",
-                error: err,
-            });
+    let statusCode = 204;
+    let regionIdsSnapshot = await dbRef.child('/regions/').child(region).limitToFirst(1).once('value');
+    let regionIds = regionIdsSnapshot.val();
+    if (!regionIds) {
+        return res.status(statusCode).json({
+            version: "[2] update 1",
+            message: "no-posts",
         });
+    }
+    let firstPostId = Object.keys(regionIds)[0]
+    let resData = [];
+
+    let firstPostSnapshot = await dbRef.child('/posts').child(firstPostId).once('value');
+    let firstPost = firstPostSnapshot.val();
+    if (!firstPost) {
+        return res.status(statusCode).json({
+            version: "[2] update 1",
+            message: "no-first-post",
+        });
+    }
+
+    if (distanceBetween2Coordinates(currentLocationCoordinates.latitude, currentLocationCoordinates.longitude, 
+        firstPost.latitude, firstPost.longitude) < distance) {
+            firstPost['postId'] = firstPostId;
+            resData.push(firstPost);
+    }
+
+    let postsData = await getValidPosts(region, firstPostId, distance, currentLocationCoordinates);
+    resData.push(...postsData.validPosts);
+
+    let message = "no-posts";
+    if(resData.length !== 0) { message = "ok"; statusCode = 200;}
+
+    return res.status(statusCode).json({
+        version: "update 15",
+        message: message,
+        posts: resData,
+        prevPostId: postsData.prevPostId,
+    });
 });
 
 // Listens for new posts added to /posts/:postId and creates an
