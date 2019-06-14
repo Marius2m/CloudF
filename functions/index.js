@@ -229,8 +229,12 @@ exports.getFirstPosts = functions.https.onRequest(async (req, res) => {
                     let postsData = await getValidPosts(region, firstPostId, distance, currentLocationCoordinates);
                     resData.push(...postsData.validPosts);
 
-                    return res.status(200).json({
-                        version: "update 12",
+                    let message = "no-posts";
+                    let statusCode = 204;
+                    if(resData.length !== 0) { message = "ok"; statusCode = 200;}
+
+                    return res.status(statusCode).json({
+                        version: "update 14",
                         message: message,
                         posts: resData,
                         prevPostId: postsData.prevPostId,
@@ -250,7 +254,7 @@ exports.getFirstPosts = functions.https.onRequest(async (req, res) => {
 
 // Listens for new posts added to /posts/:postId and creates an
 // entry with postId under /regions/{continent}/ 
-exports.addPostToRegion = functions.database
+exports.onPostCreate = functions.database
     .ref('/posts/{pushId}')
     .onCreate((snapshot, context) => {
         const snapshotData = snapshot.val();
@@ -283,15 +287,30 @@ exports.addPostToRegion = functions.database
             [postID]:1
         }
 
-        let _sort_location = snapshotData.location + "_" + postID;
+        let _sort_location = snapshotData.location.toLocaleLowerCase() + "_" + postID;
         
-        admin.database().ref().child('posts').child(postID).update({_sort_location: _sort_location});
-        
-        return admin.database().ref().child('posts').child(postID).update({region: foundContinent})
+        return admin.database().ref().child('posts').child(postID).update({_sort_location: _sort_location})
             .then((data) => {
-                console.log("dataUpdate", data);
+                console.log("added _sort_location");
+                return admin.database().ref().child('posts').child(postID).update({region: foundContinent})
+            })
+            .then((data) => {
+                console.log(`updated posts/${postID} region: ${foundContinent}`);
                 return snapshot.ref.parent.parent.child('regions').child(foundContinent).update(regionData);
-            });
+            })
+            .then((data) => {
+                console.log(`updated regions/${foundContinent} with ${regionData}`);
+                return;
+            })
+            .catch((err) => {
+                console.log(err);
+            })
+        
+        // return admin.database().ref().child('posts').child(postID).update({region: foundContinent})
+        //     .then((data) => {
+        //         console.log("dataUpdate", data);
+        //         return snapshot.ref.parent.parent.child('regions').child(foundContinent).update(regionData);
+        //     });
         // return snapshot.ref.parent.parent.child('regions').child(foundContinent).update(regionData);
 });
 
