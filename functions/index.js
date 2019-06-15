@@ -24,15 +24,15 @@ const regions = [
     },
     {
         europe: 
-            ["Albania", "Andorra", "Austria", "Belarus", "Belgium", "Bosnia and Herzegovina", "Bulgaria", "Croatia", "Czech Republic", "Denmark", "Estonia", "Findland", "France", "Germany", "Greece", "Hungary", "Iceland", "Republic of Ireland",
-            "Italy", "Kosovo", "Latvia", "Liechtenstein", "Lithuania", "Luxembourg", "Macedonia", "Malta", "Moldova", "Monaco", "Montenegro", "Netherlands", "Norway", "Poland", "Portugal", "Romania", "San Marino", "Serbia", "Slovakia", "Slovenia",
-            "Spain", "Sweden", "Switzerland", "Ukraine", "United Kingdom", "Vatican City"]
+            ["Albania", "Andorra", "Austria", "Belarus", "Belgium", "Bosnia and Herzegovina", "Bulgaria", "Croatia", "Czechia", "Czech Republic", "Denmark", "Estonia", "Findland", "France", "Germany", "Greece", "Hungary", "Iceland", "Republic of Ireland",
+            "Italy", "Kosovo", "Latvia", "Liechtenstein", "Lithuania", "Luxembourg", "North Macedonia", "Macedonia", "Malta", "Moldova", "Monaco", "Montenegro", "Netherlands", "Norway", "Poland", "Portugal", "Romania", "San Marino", "Serbia", "Slovakia", "Slovenia",
+            "Spain", "Sweden", "Switzerland", "Ukraine", "United Kingdom", "UK", "Vatican City"]
     },
     {
         "north america": 
             ["Canada", "Greenland", "Western Iceland", "United States of America", "Mexico", "Bermuda", "Antigua and Barbuda", "Aruba", "The Bahamas", "Barbados", "Belize", "Bonaire", "Costa Rica", "Cuba", "Curaçao", "Dominica", "Dominican Republic",
             "El Salvador", "Grenada", "Guatemala", "Haiti", "Honduras", "Jamaica", "Nicaragua", "Panama", "Puerto Rico", "Saba", "Saint Kitts and Nevis", "Saint Martin", "Saint Lucia", "Saint Vincent and the Grenadines", "Sint Eustatius", "Sint Maarten",
-            "Trinidad and Tobago", "Turks and Caicos"]
+            "Trinidad and Tobago", "Turks and Caicos", "US", "USA"]
     },
     {
         "south america": 
@@ -554,13 +554,13 @@ exports.getPost = functions.https.onRequest(async (req, res) => {
 });
 
 exports.searchByString = functions.https.onRequest(async (req, res) => {
-    const queryString = req.query.queryString;
+    const queryString = req.query.queryString.toLocaleLowerCase();
     let message = "no-posts";
     let statusCode = 204;
     let prevSortLocation = queryString;
 
     if(req.query.prevSortLocation !== null && req.query.prevSortLocation !== undefined) 
-        prevSortLocation = req.query.prevSortLocation;
+        prevSortLocation = req.query.prevSortLocation.toLocaleLowerCase();
 
     // let continentsArr = ["america", "australia"];
     // for(region of regions) {
